@@ -3,25 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>认知能力专业评估系统</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <title>专业认知评估系统 - 箱线图版</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@sgratzl/chartjs-chart-boxplot@3.10.0"></script>
     <style>
-        :root { --primary: #2563eb; --bg: #f8fafc; --card: #ffffff; --text: #1e293b; --secondary-text: #64748b; }
-        body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--text); display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box;}
-        .container { background: var(--card); width: 100%; max-width: 700px; padding: 2rem; border-radius: 1.5rem; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); text-align: center; }
-        #word { font-size: 4.5rem; font-weight: 800; margin: 2rem 0; min-height: 6rem; display: flex; align-items: center; justify-content: center; user-select: none; }
+        :root { --primary: #2563eb; --bg: #f8fafc; --card: #ffffff; --text: #1e293b; }
+        body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); display: flex; justify-content: center; padding: 20px; }
+        .container { background: var(--card); width: 100%; max-width: 800px; padding: 2rem; border-radius: 1.5rem; box-shadow: 0 10px 25px rgba(0,0,0,0.1); text-align: center; }
+        #word { font-size: 5rem; font-weight: 800; margin: 2rem 0; min-height: 6rem; display: flex; align-items: center; justify-content: center; }
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-        .color-btn { color: white; padding: 1.2rem; border-radius: 0.8rem; font-size: 1.1rem; border:none; cursor:pointer; }
+        .color-btn { color: white; padding: 1.2rem; border-radius: 0.8rem; border: none; font-size: 1.1rem; cursor: pointer; }
         .hidden { display: none; }
-        .input-group { text-align: left; margin-bottom: 1.5rem; }
-        input, select { width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 0.5rem; }
-        button#start-btn { background: var(--primary); color: white; border: none; padding: 1rem; border-radius: 0.6rem; font-weight: 600; cursor: pointer; width: 100%; }
-        
-        /* 图表布局 */
-        .charts-grid { display: grid; grid-template-columns: 1.5fr 1fr; gap: 20px; margin-top: 20px; }
-        @media (max-width: 600px) { .charts-grid { grid-template-columns: 1fr; } }
-        .chart-box { background: #fff; padding: 15px; border: 1px solid #f1f5f9; border-radius: 12px; height: 320px; }
-        .stat-card { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #f1f5f9; font-size: 0.9rem; }
+        .stat-row { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px dashed #eee; }
+        .chart-wrapper { margin-top: 30px; background: #fff; padding: 15px; border-radius: 12px; border: 1px solid #eef2f6; height: 450px; }
         .badge { padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; margin-bottom: 10px; display: inline-block; }
     </style>
 </head>
@@ -29,15 +23,14 @@
 
 <div class="container">
     <div id="step-info">
-        <h2>认知评估系统</h2>
-        <div class="input-group"><label>性别</label><select id="gender"><option value="男">男</option><option value="女">女</option></select></div>
-        <div class="input-group"><label>年龄</label><input type="number" id="age" placeholder="请输入年龄"></div>
-        <button id="start-btn" onclick="startApp()">开始测试</button>
+        <h2>认知评估系统 (科研级)</h2>
+        <p>本测试将生成反应时分布箱线图</p>
+        <button style="background:var(--primary); color:white; padding:15px 30px; border:none; border-radius:8px; cursor:pointer;" onclick="startApp()">开始测试</button>
     </div>
 
     <div id="step-test" class="hidden">
         <div id="status-tag"></div>
-        <div id="progress" style="color:var(--secondary-text)">进度: 0 / 0</div>
+        <div id="progress"></div>
         <div id="word"></div>
         <div class="grid">
             <button class="color-btn" style="background:#ef4444" onclick="record('red')">红</button>
@@ -48,33 +41,28 @@
     </div>
 
     <div id="step-report" class="hidden">
-        <h2 style="color:var(--primary)">测评报告</h2>
-        <div class="stat-card"><span>平均反应时:</span><b id="res-rt"></b></div>
-        <div class="stat-card"><span>正确率:</span><b id="res-acc"></b></div>
-        <div class="stat-card"><span>Stroop 干扰值:</span><b id="res-stroop"></b></div>
+        <h2 style="color:var(--primary)">测评数据深度报告</h2>
+        <div class="stat-row"><span>总正确率:</span><b id="res-acc"></b></div>
+        <div class="stat-row"><span>Stroop 干扰值:</span><b id="res-stroop"></b></div>
 
-        <div class="charts-grid">
-            <div class="chart-box">
-                <canvas id="rtChart"></canvas>
-            </div>
-            <div class="chart-box">
-                <canvas id="accChart"></canvas>
-            </div>
+        <div class="chart-wrapper">
+            <canvas id="boxChart"></canvas>
         </div>
 
-        <p id="analysis" style="text-align:left; color:var(--secondary-text); font-size:0.9rem; margin-top:20px;"></p>
-        <button onclick="downloadCSV()" style="background:#10b981; color:white; border:none; padding:10px 20px; border-radius:8px; cursor:pointer;">导出原始数据</button>
+        <div style="margin-top: 20px; text-align: left; font-size: 0.9rem; color: #666;">
+            <p>* <b>箱线图说明：</b>中间横线为中位数，箱体代表 25%-75% 的数据区间，上下触须外的点为离群值。</p>
+        </div>
+        <button onclick="location.reload()" style="margin-top:20px; padding:10px; width:100%">重新测试</button>
     </div>
 </div>
 
 <script>
-    const cfg = { practice: 5, formal: 20 };
+    const cfg = { practice: 5, formal: 30 };
     const colors = ['red', 'blue', 'green', 'yellow'];
     const names = {red:'红', blue:'蓝', green:'绿', yellow:'黄'};
-    let trials = [], state = 'info', current = 0, phase = 'practice', startTime, curTrialData;
+    let trials = [], current = 0, phase = 'practice', startTime, curWord, curColor;
 
     function startApp() {
-        if(!document.getElementById('age').value) return alert("请填写信息");
         document.getElementById('step-info').classList.add('hidden');
         document.getElementById('step-test').classList.remove('hidden');
         next();
@@ -83,19 +71,18 @@
     function next() {
         const total = phase === 'practice' ? cfg.practice : cfg.formal;
         if(current >= total) {
-            if(phase === 'practice') { 
-                alert("练习结束，进入正式测试"); phase = 'formal'; current = 0; next(); 
-            } else { finish(); }
+            if(phase === 'practice') { phase = 'formal'; current = 0; alert("练习结束，开始正式记录"); next(); }
+            else { finish(); }
             return;
         }
         current++;
         document.getElementById('progress').innerText = `进度: ${current} / ${total}`;
-        document.getElementById('status-tag').innerHTML = phase === 'practice' ? '<span class="badge" style="background:#fef3c7; color:#92400e">练习模式</span>' : '<span class="badge" style="background:#dcfce7; color:#166534">正式评估</span>';
+        document.getElementById('status-tag').innerHTML = phase === 'practice' ? '<span class="badge" style="background:#fef3c7; color:#92400e">练习</span>' : '<span class="badge" style="background:#dcfce7; color:#166534">正式</span>';
         
-        const w = colors[Math.floor(Math.random()*4)], c = colors[Math.floor(Math.random()*4)];
+        curWord = colors[Math.floor(Math.random()*4)];
+        curColor = colors[Math.floor(Math.random()*4)];
         const el = document.getElementById('word');
-        el.innerText = names[w]; el.style.color = c;
-        curTrialData = { word: names[w], color: c, isCongruent: w === c };
+        el.innerText = names[curWord]; el.style.color = curColor;
         startTime = performance.now();
     }
 
@@ -104,10 +91,8 @@
         if(phase === 'formal') {
             trials.push({
                 rt: rt,
-                isCorrect: selected === curTrialData.color,
-                isCongruent: curTrialData.isCongruent,
-                word: curTrialData.word,
-                color: curTrialData.color
+                isCorrect: selected === curColor,
+                type: curWord === curColor ? '一致' : '不一致'
             });
         }
         next();
@@ -116,51 +101,43 @@
     function finish() {
         document.getElementById('step-test').classList.add('hidden');
         document.getElementById('step-report').classList.remove('hidden');
-        
+
         const corrects = trials.filter(t => t.isCorrect);
-        const acc = (corrects.length / trials.length * 100).toFixed(1);
-        const avgRt = (corrects.reduce((a, b) => a + b.rt, 0) / corrects.length).toFixed(0);
-        
-        // 干扰值计算
-        const conRt = corrects.filter(t => t.isCongruent).reduce((a, b) => a + b.rt, 0) / corrects.filter(t => t.isCongruent).length || 0;
-        const inconRt = corrects.filter(t => !t.isCongruent).reduce((a, b) => a + b.rt, 0) / corrects.filter(t => !t.isCongruent).length || 0;
-        const stroopEff = (inconRt - conRt).toFixed(0);
+        const conData = corrects.filter(t => t.type === '一致').map(t => t.rt);
+        const inconData = corrects.filter(t => t.type === '不一致').map(t => t.rt);
 
-        document.getElementById('res-rt').innerText = avgRt + " ms";
-        document.getElementById('res-acc').innerText = acc + " %";
-        document.getElementById('res-stroop').innerText = stroopEff + " ms";
+        // 更新文字统计
+        document.getElementById('res-acc').innerText = (corrects.length / trials.length * 100).toFixed(1) + "%";
+        const avgCon = conData.reduce((a,b)=>a+b,0)/conData.length || 0;
+        const avgIncon = inconData.reduce((a,b)=>a+b,0)/inconData.length || 0;
+        document.getElementById('res-stroop').innerText = (avgIncon - avgCon).toFixed(0) + " ms";
 
-        // 绘制饼图 (正确率)
-        new Chart(document.getElementById('accChart'), {
-            type: 'doughnut',
+        // 绘制箱线图
+        const ctx = document.getElementById('boxChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'boxplot',
             data: {
-                labels: ['正确', '错误'],
+                labels: ['一致 (Congruent)', '不一致 (Incongruent)'],
                 datasets: [{
-                    data: [corrects.length, trials.length - corrects.length],
-                    backgroundColor: ['#10b981', '#ef4444']
+                    label: '反应时 (ms)',
+                    backgroundColor: ['rgba(34, 197, 94, 0.5)', 'rgba(239, 68, 68, 0.5)'],
+                    borderColor: ['#166534', '#991b1b'],
+                    borderWidth: 2,
+                    outlierColor: '#999',
+                    padding: 10,
+                    itemRadius: 2,
+                    data: [conData, inconData]
                 }]
             },
-            options: { plugins: { title: { display: true, text: '正确率占比' } } }
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    title: { display: true, text: '反应时箱线图统计 (RT Box Plot)', font: { size: 16 } }
+                }
+            }
         });
-
-        // 绘制反应时分布图
-        const rts = corrects.map(t => t.rt);
-        new Chart(document.getElementById('rtChart'), {
-            type: 'bar',
-            data: {
-                labels: corrects.map((_, i) => i + 1),
-                datasets: [{ label: '反应时间(ms)', data: rts, backgroundColor: '#3b82f6' }]
-            },
-            options: { plugins: { title: { display: true, text: '反应时间波动' } }, scales: { y: { beginAtZero: true } } }
-        });
-    }
-
-    function downloadCSV() {
-        let csv = "\uFEFFWord,Color,Correct,RT(ms)\n";
-        trials.forEach(t => csv += `${t.word},${t.color},${t.isCorrect},${t.rt.toFixed(2)}\n`);
-        const blob = new Blob([csv], { type: 'text/csv' });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a'); a.href = url; a.download = 'report.csv'; a.click();
     }
 </script>
 </body>

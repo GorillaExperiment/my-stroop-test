@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>Stroop 实验数据采集版</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; background: #f4f7f6; color: #333; }
+        #game-container { max-width: 600px; margin: 50px auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        #word { font-size: 72px; font-weight: bold; margin: 40px 0; height: 100px; line-height: 100px; }
+        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; max-width: 300px; margin: 0 auto; }
+        button { padding: 15px; font-size: 18px; cursor: pointer; border: none; border-radius: 10px; color: white; transition: transform 0.1s; }
+        button:active { transform: scale(0.95); }
+        .red { background: #e74c3c; } .blue { background: #3498db; } .green { background: #2ecc71; } .yellow { background: #f1c40f; color: #333; }
+        #progress { margin-top: 20px; color: #888; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="intro">
+        <h1>Stroop 心理实验</h1>
+        <p>请根据文字的<b>颜色</b>点击下方按钮，越快越好。</p>
+        <button style="background:#333" onclick="startExperiment()">开始实验</button>
+    </div>
+
+    <div id="test-area" class="hidden">
+        <div id="progress">进度: 1 / 10</div>
+        <div id="word">加载中...</div>
+        <div class="btn-grid">
+            <button class="red" onclick="recordResponse('red')">红</button>
+            <button class="blue" onclick="recordResponse('blue')">蓝</button>
+            <button class="green" onclick="recordResponse('green')">绿</button>
+            <button class="yellow" onclick="recordResponse('yellow')">黄</button>
+        </div>
+    </div>
+
+    <div id="result-area" class="hidden">
+        <h2>实验完成！</h2>
+        <p>感谢您的参与。请下载实验数据并发送给研究者。</p>
+        <button style="background:#27ae60" onclick="downloadCSV()">下载实验结果 (CSV)</button>
+    </div>
+</div>
+
+<script>
+    const colors = ['red', 'blue', 'green', 'yellow'];
+    const colorNames = { 'red': '红', 'blue': '蓝', 'green': '绿', 'yellow': '黄' };
+    const totalTrials = 10; // 设定实验轮次
+    let currentTrial = 0;
+    let startTime;
+    let results = [];
+    let currentWord, currentColor;
+
+    function startExperiment() {
+        document.getElementById('intro').classList.add('hidden');
+        document.getElementById('test-area').classList.remove('hidden');
+        nextTrial();
+    }
+
+    function nextTrial() {
+        if (currentTrial >= totalTrials) {
+            endExperiment();
+            return;
+        }
+        currentTrial++;
+        document.getElementById('progress').innerText = `进度: ${currentTrial} / ${totalTrials}`;
+        
+        // 随机文字和颜色（制造干扰）
+        currentWord = colorNames[colors[Math.floor(Math.random() * colors.length)]];
+        currentColor = colors[Math.floor(Math.random() * colors.length)];
+        
+        const wordElement = document.getElementById('word');
+        wordElement.innerText = currentWord;
+        wordElement.style.color = currentColor;
+        
+        startTime = performance.now(); // 开始计时
+    }
+
+    function recordResponse(selectedColor) {
+        const endTime = performance.now();
+        const reactionTime = (endTime - startTime).toFixed(2);
+        const isCorrect = (selectedColor === currentColor) ? 1 : 0;
+
+        // 记录数据
+        results.push({
+            trial: currentTrial,
+            word: currentWord,
+            color: currentColor,
+            response: selectedColor,
+            isCorrect: isCorrect,
+            rt: reactionTime
+        });
+
+        nextTrial();
+    }
+
+    function endExperiment() {
+        document.getElementById('test-area').classList.add('hidden');
+        document.getElementById('result-area').classList.remove('hidden');
+    }
+
+    function downloadCSV() {
+        let csvContent = "Trial,Word,Color,Response,IsCorrect,ReactionTime_ms\n";
+        results.forEach(row => {
+            csvContent += `${row.trial},${row.word},${row.color},${row.response},${row.isCorrect},${row.rt}\n`;
+        });
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", `stroop_data_${Date.now()}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+</script>
+
+</body>
+</html>

@@ -4,15 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>认知能力评估系统 - Stroop Test</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> 
     <style>
         :root {
             --primary: #2563eb;
             --bg: #f8fafc;
             --card: #ffffff;
             --text: #1e293b;
+            --secondary-text: #64748b;
         }
         body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--text); display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
-        .container { background: var(--card); width: 90%; max-width: 500px; padding: 2rem; border-radius: 1.5rem; shadow: 0 10px 25px rgba(0,0,0,0.05); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); text-align: center; }
+        .container { background: var(--card); width: 90%; max-width: 600px; padding: 2rem; border-radius: 1.5rem; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); text-align: center; }
         
         /* 表单与按钮样式 */
         .input-group { text-align: left; margin-bottom: 1.5rem; }
@@ -22,7 +24,7 @@
         button:hover { background: #1d4ed8; transform: translateY(-1px); }
         
         /* 游戏区域 */
-        #word { font-size: 4rem; font-weight: 800; margin: 2rem 0; min-height: 5rem; }
+        #word { font-size: 4rem; font-weight: 800; margin: 2rem 0; min-height: 5rem; display: flex; align-items: center; justify-content: center; }
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
         .color-btn { color: white; padding: 1.2rem; border-radius: 0.8rem; font-size: 1.1rem; }
         
@@ -32,15 +34,25 @@
         .formal-badge { background: #dcfce7; color: #166534; }
 
         .hidden { display: none; }
+
+        /* 报告区域 */
+        #report-area { text-align: left; }
+        #report-area h3 { margin-top: 2rem; color: var(--text); }
+        #report-area p { line-height: 1.6; color: var(--secondary-text); }
+        #chart-container { position: relative; width: 100%; height: 300px; margin-top: 1.5rem; } /* 确保图表有高度 */
+        .stat-item { display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px dashed #e2e8f0; }
+        .stat-label { font-weight: 600; }
+        .stat-value { color: var(--primary); font-weight: 600; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <div id="step-info">
-        <h2 style="margin-top:0">被试基本信息登记</h2>
+        <h2 style="margin-top:0">认知能力评估系统</h2>
+        <p style="color:var(--secondary-text)">通过经典的 Stroop 任务，评估您的专注力与抗干扰能力。</p>
         <div class="input-group">
-            <label>性别</label>
+            <label for="subject-gender">性别</label>
             <select id="subject-gender">
                 <option value="male">男</option>
                 <option value="female">女</option>
@@ -48,15 +60,15 @@
             </select>
         </div>
         <div class="input-group">
-            <label>年龄</label>
-            <input type="number" id="subject-age" placeholder="请输入您的年龄">
+            <label for="subject-age">年龄</label>
+            <input type="number" id="subject-age" placeholder="请输入您的年龄" min="6" max="99">
         </div>
-        <button onclick="toPractice()">开始练习</button>
+        <button onclick="toPractice()">开始评估</button>
     </div>
 
     <div id="step-test" class="hidden">
         <div id="phase-indicator"></div>
-        <div id="progress" style="font-size: 0.9rem; color: #64748b;">进度: 0 / 0</div>
+        <div id="progress" style="font-size: 0.9rem; color: var(--secondary-text);">进度: 0 / 0</div>
         <div id="word"></div>
         <div class="grid">
             <button class="color-btn" style="background:#ef4444" onclick="handleInput('red')">红</button>
@@ -67,14 +79,37 @@
     </div>
 
     <div id="step-finish" class="hidden">
-        <h2 style="color:#166534">测试完成</h2>
-        <p>您的反应数据已准备就绪，请下载文件反馈给研究员。</p>
-        <button onclick="exportData()">💾 下载数据报告 (CSV)</button>
+        <h2 style="color:#166534">评估报告</h2>
+        <div id="report-area">
+            <h3>您的表现概览</h3>
+            <div class="stat-item">
+                <span class="stat-label">平均反应时间 (RT)</span>
+                <span class="stat-value" id="avg-rt"></span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Stroop 干扰值 (越低越好)</span>
+                <span class="stat-value" id="stroop-interference"></span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">整体正确率</span>
+                <span class="stat-value" id="accuracy"></span>
+            </div>
+
+            <h3>反应时分布</h3>
+            <div id="chart-container">
+                <canvas id="rtChart"></canvas>
+            </div>
+            
+            <h3>专业解读</h3>
+            <p id="interpretation"></p>
+
+            <button style="margin-top:2rem; background:#27ae60" onclick="exportData()">💾 下载原始数据 (CSV)</button>
+        </div>
     </div>
 </div>
 
 <script>
-    const config = { practice: 5, formal: 20 }; // 练习5次，正式20次
+    const config = { practice: 5, formal: 30 }; // 练习5次，正式30次
     const colors = ['red', 'blue', 'green', 'yellow'];
     const names = {'red':'红', 'blue':'蓝', 'green':'绿', 'yellow':'黄'};
     
@@ -83,16 +118,21 @@
         current: 0,
         results: [],
         subject: {},
-        startTime: 0
+        startTime: 0,
+        currentTrialData: {} // 存储当前轮次的原始数据
     };
 
     function toPractice() {
         const age = document.getElementById('subject-age').value;
-        if(!age) return alert("请填写年龄");
+        if(!age || age < 6 || age > 99) {
+            alert("请填写有效的年龄 (6-99岁)");
+            return;
+        }
         
         state.subject = {
             gender: document.getElementById('subject-gender').value,
-            age: age
+            age: age,
+            timestamp: new Date().toISOString()
         };
         
         document.getElementById('step-info').classList.add('hidden');
@@ -106,7 +146,7 @@
         const indicator = document.getElementById('phase-indicator');
         indicator.innerHTML = phase === 'practice' 
             ? '<span class="badge practice-badge">练习模式 (不计分)</span>' 
-            : '<span class="badge formal-badge">正式测试 (数据记录中)</span>';
+            : '<span class="badge formal-badge">正式评估 (数据记录中)</span>';
         nextTrial();
     }
 
@@ -114,7 +154,7 @@
         const total = state.phase === 'practice' ? config.practice : config.formal;
         if(state.current >= total) {
             if(state.phase === 'practice') {
-                alert("练习结束，点击确定开始正式测试！");
+                alert("练习结束，点击确定开始正式评估！");
                 startPhase('formal');
             } else {
                 showFinish();
@@ -125,29 +165,37 @@
         state.current++;
         document.getElementById('progress').innerText = `进度: ${state.current} / ${total}`;
         
-        const targetWord = colors[Math.floor(Math.random()*4)];
-        const targetColor = colors[Math.floor(Math.random()*4)];
+        const targetWordKey = colors[Math.floor(Math.random()*4)];
+        const targetColorKey = colors[Math.floor(Math.random()*4)];
         
         const el = document.getElementById('word');
-        el.innerText = names[targetWord];
-        el.style.color = targetColor;
-        el.dataset.correct = targetColor;
+        el.innerText = names[targetWordKey];
+        el.style.color = targetColorKey;
+        
+        // 存储当前轮次的数据，用于后续判断一致性
+        state.currentTrialData = {
+            word: names[targetWordKey],
+            displayColor: targetColorKey,
+            isCongruent: (targetWordKey === targetColorKey) // 词义与颜色是否一致
+        };
         
         state.startTime = performance.now();
     }
 
     function handleInput(selected) {
         const rt = (performance.now() - state.startTime).toFixed(2);
-        const correctColor = document.getElementById('word').dataset.correct;
+        const isCorrect = (selected === state.currentTrialData.displayColor);
         
         if(state.phase === 'formal') {
             state.results.push({
                 ...state.subject,
                 trial: state.current,
-                is_correct: selected === correctColor ? 1 : 0,
-                rt: rt,
-                word: document.getElementById('word').innerText,
-                color: correctColor
+                word: state.currentTrialData.word,
+                displayColor: state.currentTrialData.displayColor,
+                isCongruent: state.currentTrialData.isCongruent ? 1 : 0, // 1为一致，0为不一致
+                response: selected,
+                isCorrect: isCorrect ? 1 : 0,
+                rt: rt
             });
         }
         nextTrial();
@@ -156,20 +204,122 @@
     function showFinish() {
         document.getElementById('step-test').classList.add('hidden');
         document.getElementById('step-finish').classList.remove('hidden');
+        generateReport(); // 生成报告
+    }
+
+    function generateReport() {
+        const formalResults = state.results.filter(r => r.isCorrect === 1); // 只计算正确反应
+
+        const totalCorrect = formalResults.length;
+        const totalFormalTrials = config.formal;
+        const accuracy = (totalCorrect / totalFormalTrials * 100).toFixed(1) + '%';
+
+        const sumRT = formalResults.reduce((sum, r) => sum + parseFloat(r.rt), 0);
+        const avgRT = totalCorrect > 0 ? (sumRT / totalCorrect).toFixed(0) + ' ms' : 'N/A';
+
+        // 计算 Stroop 干扰值
+        const congruentRTs = formalResults.filter(r => r.isCongruent === 1).map(r => parseFloat(r.rt));
+        const incongruentRTs = formalResults.filter(r => r.isCongruent === 0).map(r => parseFloat(r.rt));
+
+        const avgCongruentRT = congruentRTs.length > 0 ? (congruentRTs.reduce((sum, rt) => sum + rt, 0) / congruentRTs.length).toFixed(0) : 0;
+        const avgIncongruentRT = incongruentRTs.length > 0 ? (incongruentRTs.reduce((sum, rt) => sum + rt, 0) / incongruentRTs.length).toFixed(0) : 0;
+        
+        const stroopInterference = (avgIncongruentRT - avgCongruentRT).toFixed(0);
+
+        document.getElementById('avg-rt').innerText = avgRT;
+        document.getElementById('stroop-interference').innerText = `${stroopInterference} ms`;
+        document.getElementById('accuracy').innerText = accuracy;
+
+        // 解释解读
+        let interpretationText = "";
+        if (stroopInterference > 100) {
+            interpretationText = "您的Stroop干扰值较高，可能在信息处理时容易受到干扰。这表明您的认知控制能力有提升空间，建议进行更多专注力训练。";
+        } else if (stroopInterference > 50) {
+            interpretationText = "您的Stroop干扰值适中，在面对冲突信息时表现出一般的抗干扰能力。大部分情况下能保持专注，但在复杂环境中可能仍需努力。";
+        } else if (stroopInterference >= 0) {
+             interpretationText = "您的Stroop干扰值较低，显示出优秀的认知控制和抗干扰能力。您在处理冲突信息时能够快速准确地做出反应，表现出高度的专注力。";
+        } else { // 负数，理论上不应该出现或很少
+             interpretationText = "您的表现非常出色，Stroop干扰值极低（甚至为负），这在统计上较为罕见，可能表明您对任务的适应性极高或反应速度异于常人。";
+        }
+
+        document.getElementById('interpretation').innerText = interpretationText;
+
+        // 绘制图表 (反应时分布)
+        const rtValues = formalResults.map(r => parseFloat(r.rt));
+        const histogramData = {}; // 用于统计不同RT区间的数量
+        const binSize = 50; // 每50ms一个区间
+        const maxRt = Math.max(...rtValues);
+
+        for (let i = 0; i <= maxRt + binSize; i += binSize) {
+            histogramData[i] = 0;
+        }
+        rtValues.forEach(rt => {
+            const bin = Math.floor(rt / binSize) * binSize;
+            histogramData[bin]++;
+        });
+
+        const chartLabels = Object.keys(histogramData).sort((a,b)=>a-b).map(bin => `${bin}-${parseInt(bin)+binSize}ms`);
+        const chartData = Object.keys(histogramData).sort((a,b)=>a-b).map(bin => histogramData[bin]);
+
+        const ctx = document.getElementById('rtChart').getContext('2d');
+        if (window.rtChartInstance) { // 销毁旧图表实例
+            window.rtChartInstance.destroy();
+        }
+        window.rtChartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: chartLabels,
+                datasets: [{
+                    label: '正确反应时分布',
+                    data: chartData,
+                    backgroundColor: 'rgba(59, 130, 246, 0.7)',
+                    borderColor: 'rgba(59, 130, 246, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        title: { display: true, text: '反应时间 (ms)' }
+                    },
+                    y: {
+                        title: { display: true, text: '正确反应次数' },
+                        beginAtZero: true
+                    }
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) { label += ': '; }
+                                if (context.parsed.y !== null) { label += context.parsed.y + ' 次'; }
+                                return label;
+                            }
+                        }
+                    }
+                }
+            }
+        });
     }
 
     function exportData() {
-        let csv = "\uFEFFGender,Age,Trial,Word,Color,IsCorrect,RT_ms\n";
+        let csv = "\uFEFFTimestamp,Gender,Age,Trial,Word,DisplayColor,IsCongruent,Response,IsCorrect,RT_ms\n";
         state.results.forEach(r => {
-            csv += `${r.gender},${r.age},${r.trial},${r.word},${r.color},${r.is_correct},${r.rt}\n`;
+            csv += `${r.timestamp},${r.gender},${r.age},${r.trial},${r.word},${r.displayColor},${r.isCongruent},${r.response},${r.isCorrect},${r.rt}\n`;
         });
         
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `Stroop_Result_${Date.now()}.csv`;
+        a.download = `Stroop_Report_${state.subject.age}_${state.subject.gender}_${Date.now()}.csv`;
+        document.body.appendChild(a); // 必须添加到body才能点击
         a.click();
+        document.body.removeChild(a);
     }
 </script>
 </body>
